@@ -91,10 +91,13 @@ public class TsFileNameGenerator {
       int tierLevel,
       String customSuffix)
       throws DiskSpaceInsufficientException {
-    String tsFileDir =
-        generateTsFileDir(
-            sequence, logicalStorageGroup, virtualStorageGroup, timePartitionId, tierLevel);
-    fsFactory.getFile(tsFileDir).mkdirs();
+    String tsFileDir = null;
+    int retryTimes = 3;
+    while (retryTimes-- > 0) {
+      tsFileDir = generateTsFileDir(
+                      sequence, logicalStorageGroup, virtualStorageGroup, timePartitionId, tierLevel);
+      if (fsFactory.getFile(tsFileDir).mkdirs()) break;
+    }
     return tsFileDir
         + File.separator
         + generateNewTsFileName(
@@ -132,11 +135,11 @@ public class TsFileNameGenerator {
       int crossSpaceCompactionCount,
       String customSuffix) {
     return time
-        + IoTDBConstant.FILE_NAME_SEPARATOR
+        + FILE_NAME_SEPARATOR
         + version
-        + IoTDBConstant.FILE_NAME_SEPARATOR
+        + FILE_NAME_SEPARATOR
         + innerSpaceCompactionCount
-        + IoTDBConstant.FILE_NAME_SEPARATOR
+        + FILE_NAME_SEPARATOR
         + crossSpaceCompactionCount
         + customSuffix;
   }

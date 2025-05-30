@@ -22,6 +22,7 @@ package org.apache.iotdb.db.storageengine.dataregion.wal.allocation;
 import org.apache.iotdb.commons.conf.CommonConfig;
 import org.apache.iotdb.commons.conf.CommonDescriptor;
 import org.apache.iotdb.db.exception.DiskSpaceInsufficientException;
+import org.apache.iotdb.db.storageengine.dataregion.wal.exception.WALException;
 import org.apache.iotdb.db.storageengine.dataregion.wal.node.IWALNode;
 import org.apache.iotdb.db.storageengine.dataregion.wal.node.WALFakeNode;
 import org.apache.iotdb.db.storageengine.dataregion.wal.node.WALNode;
@@ -58,24 +59,34 @@ public abstract class AbstractNodeAllocationStrategy implements NodeAllocationSt
   protected IWALNode createWALNode(String identifier) {
     String folder;
     // get wal folder
-    try {
-      folder = folderManager.getNextFolder();
-    } catch (DiskSpaceInsufficientException e) {
-      logger.error("Fail to create wal node because all disks of wal folders are full.", e);
-      return WALFakeNode.getFailureInstance(e);
+    int retryTimes = 3;
+    for (int i = 0; i < retryTimes && i < folderManager.getFolders().size(); i++) {
+      try {
+        folder = folderManager.getNextFolder();
+        folder = folder + File.separator + identifier;
+        try {
+          return new WALNode(identifier, folder);
+        } catch (IOException e) {
+          logger.error("Failed to create WAL node at folder {} (attempt {}/{}). Exception: {}. Will {}retry.",
+                  folder,
+                  i + 1,
+                  retryTimes,
+                  e.getMessage(),
+                  (i == retryTimes - 1) ? "not " : "");
+          if (i == retryTimes - 1) {
+            return WALFakeNode.getFailureInstance(e);
+          }
+        }
+      } catch (DiskSpaceInsufficientException e) {
+        logger.error("Fail to create wal node because all disks of wal folders are full.", e);
+        return WALFakeNode.getFailureInstance(e);
+      }
     }
-    folder = folder + File.separator + identifier;
-    // create new wal node
-    return createWALNode(identifier, folder);
-  }
-
-  protected IWALNode createWALNode(String identifier, String folder) {
-    try {
-      return new WALNode(identifier, folder);
-    } catch (IOException e) {
-      logger.error("Meet exception when creating wal node", e);
-      return WALFakeNode.getFailureInstance(e);
-    }
+    String errorMsg = String.format(
+       "Failed to create WAL node after %d attempts: No available disk space in any WAL directory.",
+       retryTimes
+    );
+    return WALFakeNode.getFailureInstance(new WALException(errorMsg));
   }
 
   protected IWALNode createWALNode(
