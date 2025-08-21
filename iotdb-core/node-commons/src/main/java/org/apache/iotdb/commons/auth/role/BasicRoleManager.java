@@ -97,6 +97,10 @@ public abstract class BasicRoleManager implements IEntityManager, SnapshotProces
     return result;
   }
 
+  public IEntityAccessor getAccessor() {
+    return accessor;
+  }
+
   public void grantPrivilegeToEntity(String entityName, PrivilegeUnion privilegeUnion)
       throws AuthException {
     lock.writeLock(entityName);
