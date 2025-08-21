@@ -38,6 +38,7 @@ public class UserPasswordModifier {
   public UserPasswordModifier(String userDirPath) throws AuthException {
     this.userManager = new LocalFileUserManager(userDirPath);
     this.userManager.reset();
+    CommonDescriptor.getInstance().getConfig().setEnforceStrongPassword(true);
   }
 
   /** Modify user password */
